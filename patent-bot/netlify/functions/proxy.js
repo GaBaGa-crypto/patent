@@ -1,41 +1,41 @@
 exports.handler = async function (event) {
-  // 只接受 POST
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
 
-  // API Key 從 Netlify 環境變數讀取，前端永遠看不到
-  const DIFY_API_KEY = process.env.DIFY_API_KEY;
-  const DIFY_API_URL = process.env.DIFY_API_URL || 'https://api.dify.ai/v1/workflows/run';
+  // Dify Webhook URL 存在 Netlify 環境變數，前端永遠看不到
+  const WEBHOOK_URL = process.env.DIFY_WEBHOOK_URL;
 
-  if (!DIFY_API_KEY) {
+  if (!WEBHOOK_URL) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: '伺服器尚未設定 DIFY_API_KEY 環境變數' })
+      body: JSON.stringify({ error: '伺服器尚未設定 DIFY_WEBHOOK_URL 環境變數' })
     };
   }
 
   try {
-    const body = JSON.parse(event.body);
+    const incoming = JSON.parse(event.body);
 
-    const response = await fetch(DIFY_API_URL, {
+    // Dify Webhook 觸發器：直接 POST JSON，不需要 Authorization header
+    const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DIFY_API_KEY}`
-      },
-      body: JSON.stringify(body)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_input: incoming.user_input || ''
+      })
     });
 
-    const data = await response.text();
+    const text = await response.text();
+    let result;
+    try { result = JSON.parse(text); } catch { result = { raw: text }; }
 
     return {
-      statusCode: response.status,
+      statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
-      body: data
+      body: JSON.stringify(result)
     };
   } catch (err) {
     return {
