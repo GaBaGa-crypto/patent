@@ -3,7 +3,6 @@ exports.handler = async function (event) {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
 
-  // Dify Webhook URL 存在 Netlify 環境變數，前端永遠看不到
   const WEBHOOK_URL = process.env.DIFY_WEBHOOK_URL;
 
   if (!WEBHOOK_URL) {
@@ -16,7 +15,6 @@ exports.handler = async function (event) {
   try {
     const incoming = JSON.parse(event.body);
 
-    // Dify Webhook 觸發器：直接 POST JSON，不需要 Authorization header
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
