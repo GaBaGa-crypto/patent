@@ -20,10 +20,10 @@ exports.handler = async function (event) {
     let requestBody, apiUrl;
 
     if (action === 'chatbot') {
-      // Dify Chatflow API — query 欄位傳入用戶訊息
+      // Dify Chatflow API — query 欄位無字元限制
       apiUrl = process.env.DIFY_API_URL || 'https://api.dify.ai/v1/chat-messages';
       requestBody = {
-        inputs: { user_input: incoming.user_input || '' },
+        inputs: {},
         query: incoming.user_input || '',
         response_mode: 'blocking',
         conversation_id: incoming.conversation_id || '',
