@@ -757,7 +757,7 @@ async function callProxy(payload) {
 function parseKeywords(data) {
   const out = data?.data?.outputs || data?.outputs || data || {};
   // 嘗試解析 JSON 格式
-  let raw = out.text || out.result || out.answer || out.output || '';
+  let raw = data?.answer || out.text || out.result || out.answer || out.output || '';
   if (typeof raw === 'object') raw = JSON.stringify(raw);
   // 嘗試從 JSON 中提取
   try {
@@ -874,7 +874,7 @@ ${JSON.stringify(params, null, 2)}
 每篇輸出：專利號碼、專利名稱、申請日期、摘要、關鍵匹配詞。`;
 
   const iv = showWaiting('正在爬取專利資料庫…', `查詢 ${(params.databases||['USPTO']).join(' / ')} 中，請稍候`);
-  const res = await callProxy({ user_input: crawlInput });
+  const res = await callProxy({ user_input: crawlInput, action: 'chatbot' });
   hideWaiting(iv);
 
   removeEl('cloudPanel');
@@ -1018,7 +1018,7 @@ ${ipc.join('、')}
 
   // 呼叫 Dify（階段一）
   const iv = showWaiting('AI 正在擴寫關鍵字…', 'Dify LLM 分析中，通常需要 10~30 秒');
-  const res = await callProxy({ user_input: userInputText });
+  const res = await callProxy({ user_input: userInputText, action: 'chatbot' });
   hideWaiting(iv);
 
   if (!res.ok) {
