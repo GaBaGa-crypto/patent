@@ -3,23 +3,33 @@ exports.handler = async function (event) {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
 
-  const WEBHOOK_URL = process.env.DIFY_WEBHOOK_URL;
+  // Dify Workflow API — Key 和 URL 存在 Netlify 環境變數，前端永遠看不到
+  const DIFY_API_KEY = process.env.DIFY_API_KEY;
+  const DIFY_API_URL = process.env.DIFY_API_URL || 'https://api.dify.ai/v1/workflows/run';
 
-  if (!WEBHOOK_URL) {
+  if (!DIFY_API_KEY) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: '伺服器尚未設定 DIFY_WEBHOOK_URL 環境變數' })
+      body: JSON.stringify({ error: '伺服器尚未設定 DIFY_API_KEY 環境變數' })
     };
   }
 
   try {
     const incoming = JSON.parse(event.body);
 
-    const response = await fetch(WEBHOOK_URL, {
+    // 呼叫 Dify Workflow API（同步，等待 LLM 跑完才回傳）
+    const response = await fetch(DIFY_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DIFY_API_KEY}`
+      },
       body: JSON.stringify({
-        user_input: incoming.user_input || ''
+        inputs: {
+          user_input: incoming.user_input || ''
+        },
+        response_mode: 'blocking',
+        user: 'patent-bot'
       })
     });
 
