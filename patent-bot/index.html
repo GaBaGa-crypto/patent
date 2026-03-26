@@ -761,7 +761,8 @@ function parseKeywords(data) {
   if (typeof raw === 'object') raw = JSON.stringify(raw);
   // 嘗試從 JSON 中提取
   try {
-    const cleaned = raw.replace(/```json|```/g, '').trim();
+    raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    const cleaned = raw.trim();
     const parsed = JSON.parse(cleaned);
     return {
       zh:  Array.isArray(parsed.keywords_zh)  ? parsed.keywords_zh  : [],
