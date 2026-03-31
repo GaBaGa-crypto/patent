@@ -735,8 +735,41 @@ function hideWaiting(iv) {
 // ════════════════════════════════════════
 //  呼叫 Netlify Proxy → Dify Webhook
 // ════════════════════════════════════════
+// ── 本地開發設定：直接填入 API Key（只在 localhost 使用）
+const LOCAL_CONFIG = {
+  DIFY_API_KEY:   '',   // ← 在這裡填入你的第一個 Dify API Key（僅本地測試）
+  DIFY_API_URL:   'https://api.dify.ai/v1/chat-messages',
+  DIFY_API_KEY_2: '',   // ← 第二個工作流的 API Key
+  DIFY_API_URL_2: 'https://api.dify.ai/v1/workflows/run',
+};
+const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+
 async function callProxy(payload) {
   try {
+    // 本地環境：直接呼叫 Dify API（繞過 Python proxy，解決 Cloudflare 1010 問題）
+    if (IS_LOCAL && LOCAL_CONFIG.DIFY_API_KEY) {
+      const action = payload.action || 'chatbot';
+      let apiUrl, apiKey, body;
+      if (action === 'crawl') {
+        apiKey = LOCAL_CONFIG.DIFY_API_KEY_2;
+        apiUrl = LOCAL_CONFIG.DIFY_API_URL_2;
+        body = { inputs: { selected_keywords: payload.user_input || '' }, response_mode: 'blocking', user: 'patent-local' };
+      } else {
+        apiKey = LOCAL_CONFIG.DIFY_API_KEY;
+        apiUrl = LOCAL_CONFIG.DIFY_API_URL;
+        body = { inputs: {}, query: payload.user_input || '', response_mode: 'blocking', conversation_id: payload.conversation_id || '', user: 'patent-local' };
+      }
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey }
+      , body: JSON.stringify(body) });
+      const text = await res.text();
+      if (!res.ok) return { ok: false, msg: `HTTP ${res.status}`, detail: text };
+      try { return { ok: true, data: JSON.parse(text) }; }
+      catch { return { ok: true, data: { raw: text } }; }
+    }
+
+    // 正式環境（Netlify）：走 proxy 保護 API Key
     const res = await fetch('/api/proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -875,7 +908,7 @@ ${JSON.stringify(params, null, 2)}
 每篇輸出：專利號碼、專利名稱、申請日期、摘要、關鍵匹配詞。`;
 
   const iv = showWaiting('正在爬取專利資料庫…', `查詢 ${(params.databases||['USPTO']).join(' / ')} 中，請稍候`);
-  const res = await callProxy({ user_input: crawlInput, action: 'chatbot' });
+  const res = await callProxy({ user_input: crawlInput, action: 'crawl' });
   hideWaiting(iv);
 
   removeEl('cloudPanel');
@@ -886,8 +919,13 @@ ${JSON.stringify(params, null, 2)}
   }
 
   const out = res.data?.data?.outputs || res.data?.outputs || res.data || {};
-  const raw = out.text || out.result || out.answer || out.output || '';
-  const patents = out.patents || out.results || [];
+  let rawText = out.text || out.result || out.answer || out.output || '';
+  rawText = rawText.replace(/```json[\s]*/gi, '').replace(/```[\s]*/g, '').trim();
+  let patents = out.patents || out.results || [];
+  if (patents.length === 0 && rawText) {
+    try { const p = JSON.parse(rawText); patents = p.patents || p.results || []; } catch(e) {}
+  }
+  const raw = rawText;
 
   addMsg('bot', `🎉 爬蟲完成！${Array.isArray(patents) && patents.length > 0 ? '找到 '+patents.length+' 篇相關專利：' : '結果如下：'}`);
 
